@@ -85,20 +85,20 @@ app.get('/updateData', (req, res) => {
   var address = req.query['address']
   var access_token = req.query['access_token']
   if (!access_token || !(this.active_tokens.includes(access_token))) {
-    console.log(access_token, 'not in', this.active_tokens)
-    res.status(200).send({ error: 'No valid access token. Please login again.' })
+    // console.log(access_token, 'not in', this.active_tokens)
+    res.status(200).send({ error: 'No valid token found. Please login again.' })
   } else if (name && pinCode && occupied && vacancies && address) {
     if (pinCode.length != 6)
       res.status(200).send({ error: 'Invalid pin code' })
     else  {
       var isUpdated = false
-      for (var row of this.data)  {  // if cemetery is already existing, update data
+      for (var row of this.data)  // if cemetery is already existing, update data
         if (row.name == name && row.pinCode == pinCode) {
           row.occupied = occupied
           row.vacancies = vacancies
           isUpdated = true
+          break
         }
-      }
       if (!isUpdated)  // if no existing data is not updated, add new row
         this.data.push({  // push new object
           name: name, pinCode: pinCode, occupied: occupied,
