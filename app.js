@@ -57,7 +57,7 @@ app.get('/login', (req, res) => {
     var timestamp = new Date().toString()
     var access_token = hash(email + timestamp)
     this.active_tokens.push(access_token)
-    res.status(200).send({ access_token: access_token })
+    res.status(200).send({ access_token: access_token, status: 'Login successful' })
   }
   else  {
     res.status(200).send({ error: 'Email or password incorrect'})
@@ -73,7 +73,7 @@ app.get('/signup', (req, res) => {
   }
   else  {
     this.auth_obj[email] = password  // store password
-    res.status(200).send({ status: "success" })
+    res.status(200).send({ status: "Signup successful. You can login now." })
   }
 })
 
@@ -83,23 +83,29 @@ app.get('/updateData', (req, res) => {
   var occupied = req.query['occupied']
   var vacancies = req.query['vacancies']
   var address = req.query['address']
-  if (name && pinCode && occupied && vacancies && address) {
+  var access_token = req.query['access_token']
+  if (!access_token || !(this.active_tokens.includes(access_token))) {
+    console.log(access_token, 'not in', this.active_tokens)
+    res.status(200).send({ error: 'No valid access token. Please login again.' })
+  } else if (name && pinCode && occupied && vacancies && address) {
     if (pinCode.length != 6)
       res.status(200).send({ error: 'Invalid pin code' })
-    var isUpdated = false
-    for (var row of this.data)  {  // if cemetery is already existing, update data
-      if (row.name == name && row.pinCode == pinCode) {
-        row.occupied = occupied
-        row.vacancies = vacancies
-        isUpdated = true
+    else  {
+      var isUpdated = false
+      for (var row of this.data)  {  // if cemetery is already existing, update data
+        if (row.name == name && row.pinCode == pinCode) {
+          row.occupied = occupied
+          row.vacancies = vacancies
+          isUpdated = true
+        }
       }
+      if (!isUpdated)  // if no existing data is not updated, add new row
+        this.data.push({  // push new object
+          name: name, pinCode: pinCode, occupied: occupied,
+          vacancies: vacancies, address: address
+        })
+      res.status(200).send({ status: 'Data added successfully' })
     }
-    if (!isUpdated)  // if no existing data is not updated, add new row
-      this.data.push({  // push new object
-        name: name, pinCode: pinCode, occupied: occupied,
-        vacancies: vacancies, address: address
-      })
-    res.status(200).send({ status: 'Data added successfully' })
   }
   else
     res.status(200).send({ error: "Enter all the values" })
