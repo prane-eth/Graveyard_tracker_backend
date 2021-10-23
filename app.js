@@ -87,23 +87,34 @@ app.get('/updateData', (req, res) => {
   if (!access_token || !(this.active_tokens.includes(access_token))) {
     // console.log(access_token, 'not in', this.active_tokens)
     res.status(200).send({ error: 'No valid token found. Please login again.' })
-  } else if (name && pinCode && occupied && vacancies && address) {
+  } else if (name && pinCode) {
     if (pinCode.length != 6)
       res.status(200).send({ error: 'Invalid pin code' })
     else  {
       var isUpdated = false
       for (var row of this.data)  // if cemetery is already existing, update data
+        // var row = this.data[index]
         if (row.name == name && row.pinCode == pinCode) {
-          row.occupied = occupied
-          row.vacancies = vacancies
-          isUpdated = true
+          if (occupied == 0 && vacancies == 0) {
+            this.data.splice(
+              // index,
+              this.data.findIndex(  // remove row
+                a => (a.name == row.name && a.pinCode == row.pinCode)) 
+              , 1)
+          }
+          else {
+            row.occupied = occupied
+            row.vacancies = vacancies
+            isUpdated = true
+          }
           break
         }
-      if (!isUpdated)  // if no existing data is not updated, add new row
-        this.data.push({  // push new object
-          name: name, pinCode: pinCode, occupied: occupied,
-          vacancies: vacancies, address: address
-        })
+      // if no existing data is not updated, add new row
+      if (!isUpdated && name && pinCode && address)
+          this.data.push({  // push new object
+            name: name, pinCode: pinCode, occupied: occupied,
+            vacancies: vacancies, address: address
+          })
       res.status(200).send({ status: 'Data added successfully' })
     }
   }
