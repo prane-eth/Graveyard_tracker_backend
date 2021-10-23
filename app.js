@@ -30,16 +30,16 @@ this.auth_obj = {
 this.active_tokens = ['abc123']
 this.data = [
   {name: 'Government graveyard',
-    pinCode: 111111, occupied: 10, vacancies: 20,
+    pinCode: 400102, occupied: 10, vacancies: 20,
     address: 'Bandivali, Mumbai rural, Maharastra, India'},
   {name: 'Hospital cemetery',
-    pinCode: 111112, occupied: 12, vacancies: 30,
+    pinCode: 421100, occupied: 12, vacancies: 30,
     address: 'Ambivali, Mumbai rural, Maharastra, India'},
   {name: 'Municipal Corporation graveyard',
-    pinCode: 111113, occupied: 30, vacancies: 5,
+    pinCode: 400053, occupied: 30, vacancies: 5,
     address: 'Andheri, Mumbai rural, Maharastra, India'},
   {name: 'NGO cemetery',
-    pinCode: 111114, occupied: 10, vacancies: 20,
+    pinCode: 683541, occupied: 10, vacancies: 20,
     address: 'Irapuram, Trivendrum rural, Kerala, India'}
 ]
 
@@ -100,7 +100,7 @@ app.get('/updateData', (req, res) => {
               // index,
               this.data.findIndex(  // remove row
                 a => (a.name == row.name && a.pinCode == row.pinCode)) 
-              , 1)
+            , 1)
           }
           else {
             row.occupied = occupied
