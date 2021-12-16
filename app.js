@@ -58,10 +58,27 @@ const getPrimaryKey = (name, pinCode) => {
   return name + pinCode
 }
 
+const isTokenValid = (access_token, res) => {
+  if (!access_token || !(this.active_tokens.includes(access_token))) {
+    res.status(200).send({ error: 'No valid token found. Please login again.' })
+    return
+  }
+  var email = this.token_email[access_token]
+  if (email)
+    res.status(200).send({ status: 'Token is valid' })
+  else
+    res.status(200).send({ error: 'No valid token found. Please login again.' })
+}
+
 app.get('/', (req, res) => {
   res.status(200).send(
     'welcome. there is nothing here. visit /login /signup /updateData /getData'
   )
+})
+
+app.get('/isTokenValid', (req, res) => {
+  var access_token = req.query['access_token']
+  isTokenValid(access_token, res)
 })
 
 app.get('/login', (req, res) => {
@@ -213,7 +230,7 @@ app.get('/getBookedSlots', (req, res) => {
   if (email) {
     var slots = this.email_slots[email]
     if (slots)
-      res.status(200).send(slots)
+      res.status(200).send({ slots: slots })
     else
       res.status(200).send({ error: 'No slots booked' })
   }
