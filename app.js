@@ -127,7 +127,7 @@ app.get('/updateData', (req, res) => {
         }
       // if no existing data is not updated, add new row
       if (!isUpdated && name && pinCode && address)
-          this.data.push({  // push new object
+          this.data.push({  // push new object to data
             name: name, pinCode: pinCode, occupied: occupied,
             vacancies: vacancies, address: address
           })
