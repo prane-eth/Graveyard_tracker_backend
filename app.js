@@ -166,53 +166,61 @@ app.get('/bookSlot', (req, res) => {
   var access_token = req.query['access_token']
   if (!access_token || !(this.active_tokens.includes(access_token))) {
     // console.log(access_token, 'not in', this.active_tokens)
-    res.status(200).send({ error: 'No valid token found. Please login again.' })
-  } else if (name && pinCode) {
+    res.status(200).send({ error: 'No valid token. Please login again.' })
+  }
+  if (name && pinCode) {
     if (pinCode.length != 6)
-      res.status(200).send({ error: 'Invalid pin code' })
+      res.status(200).send({ error: 'Invalid pin code length' })
     else  {
-      var isUpdated = false
-      for (var row of this.data)  // if cemetery is already existing, update data
+      var updateIndex = null
+      for (var index in this.data) { // if cemetery is already existing, update data
+        var row = this.data[index]
         if (row.name == name && row.pinCode == pinCode) {
-          if (row.vacancies == 0){
+          if (row.vacancies == 0) {
             res.status(200).send({ 
               error: "There are no vacancies. Kindly book slots in some other cemetery"
             })
-            return
           }
-          row.occupied++
-          row.vacancies--
-          isUpdated = true
+          updateIndex = index
           break
         }
-      
-      var primaryKey = getPrimaryKey(name, pinCode)
-      var email = this.token_email[access_token]
-      if (!this.booked_slots[primaryKey])
-        this.booked_slots[primaryKey] = []
-      // if personName and email exists in this.booked_slots[primaryKey]
-      // then return that personName is already booked
-      if (this.booked_slots[primaryKey].find(
-          a => (a.personName == personName && a.email == email))) {
-        res.status(200).send({
-          error: 'You have already booked a slot for the same person in the same graveyard'
-        })
-        return
       }
-      this.booked_slots[primaryKey].push({
-        personName: personName,
-        email: email
-      })
-      // add data to this.email_slots
+      if (!updateIndex)
+        res.status(200).send({ error: 'Cemetery not found' })
+      
+      var email = this.token_email[access_token]
       if (!this.email_slots[email])
         this.email_slots[email] = []
+      // if personName and email exists in this.email_slots[email]
+      // then return that personName is already booked
+      if (this.email_slots[email])
+        for (var slot of this.email_slots[email])
+          if (slot.personName == personName) {
+            res.status(200).send({
+              error: 'You have already booked a slot for the same person'
+            })
+          }
+      var primaryKey = getPrimaryKey(name, pinCode)
+      // if primaryKey is not in this.booked_slots
+      // then add primaryKey to this.booked_slots
+      if (!this.booked_slots[primaryKey])
+        this.booked_slots[primaryKey] = []
+      this.booked_slots[primaryKey].push({
+        personName: personName, email: email
+      })
+      // get timestamp
+      var timestamp = new Date().toString()
+      // add data to this.email_slots
       this.email_slots[email].push({
         name: name,  // graveyard name
         pinCode: pinCode,
-        personName: personName
+        personName: personName,
+        timestamp: timestamp
       })
       // console.log(this.booked_slots)
       // console.log(this.email_slots)
+      this.data[updateIndex].vacancies -= 1
+      this.data[updateIndex].occupied += 1
       res.status(200).send({ status: 'Slot booked successfully' })
     }
   }
@@ -223,7 +231,7 @@ app.get('/bookSlot', (req, res) => {
 app.get('/getBookedSlots', (req, res) => {
   var access_token = req.query['access_token']
   if (!access_token || !(this.active_tokens.includes(access_token))) {
-    res.status(200).send({ error: 'No valid token found. Please login again.' })
+    res.status(200).send({ error: 'Session expired. Please login again.' })
     return
   }
   var email = this.token_email[access_token]
@@ -236,6 +244,58 @@ app.get('/getBookedSlots', (req, res) => {
   }
   else
     res.status(200).send({ error: 'No valid token found. Please login again.' })
+})
+
+app.get('/cancelSlot', (req, res) => {
+  var personName = req.query['personName']
+  var access_token = req.query['access_token']
+  if (!access_token || !(this.active_tokens.includes(access_token))) {
+    res.status(200).send({ error: 'No valid token. Please login again.' })
+    return
+  }
+  var email = this.token_email[access_token]
+  if (!email)
+    res.status(200).send({ error: 'No valid token found. Please login again.' })
+  var bookedSlots = this.email_slots[email]
+  if (!bookedSlots)
+    res.status(200).send({ error: 'No slots booked' })
+
+  var foundIndex = null
+  for (var index in bookedSlots) {
+    var slot = bookedSlots[index]
+    if (slot.personName == personName) {
+      foundIndex = index
+      break
+    }
+  }
+  if (!foundIndex)
+    res.status(200).send({ error: 'No slot found for the given person' })
+  var slot = bookedSlots[foundIndex]
+  var name = slot.name  // graveyard name
+  var pinCode = slot.pinCode
+  var primaryKey = getPrimaryKey(name, pinCode)
+  this.booked_slots[primaryKey].splice(
+    this.booked_slots[primaryKey].findIndex(
+      a => (a.personName == personName && a.email == email)
+    ), 1
+  )
+  this.email_slots[email].splice(foundIndex, 1)
+  bookedSlots.splice(index, 1)
+  // update vacancies and occupied
+  var updateIndex = null
+  for (var index in this.data) {
+    var row = this.data[index]
+    if (row.name == name && row.pinCode == pinCode) {
+      updateIndex = index
+      break
+    }
+  }
+  if (!updateIndex)
+    res.status(200).send({ error: 'Cemetery not found' })
+  this.data[updateIndex].vacancies += 1
+  this.data[updateIndex].occupied -= 1
+  
+  res.status(200).send({ status: 'Slot cancelled successfully' })
 })
 
 app.get('/logout', (req, res) => {
