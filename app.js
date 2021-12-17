@@ -49,6 +49,11 @@ this.data = [
     pinCode: 683541, occupied: 10, vacancies: 20,
     address: 'Irapuram, Trivendrum rural, Kerala, India',
     updatedBy: 'dummy@gmail.com'
+  },
+  {name: 'Church Cemetery',
+    pinCode: 400042, occupied: 12, vacancies: 22,
+    address: '4WMQ+W24, Damle Colony, Kanjurmarg East, Mumbai, Maharashtra',
+    updatedBy: 'dummy@gmail.com'
   }
 ]
 this.booked_slots = {}
@@ -294,7 +299,7 @@ app.get('/cancelSlot', (req, res) => {
     res.status(200).send({ error: 'Cemetery not found' })
   this.data[updateIndex].vacancies += 1
   this.data[updateIndex].occupied -= 1
-  
+
   res.status(200).send({ status: 'Slot cancelled successfully' })
 })
 
