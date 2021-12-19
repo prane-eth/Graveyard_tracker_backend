@@ -2,17 +2,21 @@
 'use strict';
 
 const express = require('express');
-const request = require('request');
-const MongoClient = require('mongodb').MongoClient
+// const request = require('request');
 const cors = require('cors');
 const hash = require('md5');  // import md5 as hash
 
-// MongoDB part
-var user = 'user1'
-var pass = 'pass1234'
-var uri = 'mongodb+srv://' + user + ':' + pass
-    + '@cluster0.nk3zq.mongodb.net/myFirstDatabase'
-    + '?retryWrites=true&w=majority';
+// import functions from db_functions.js
+const db_functions = require('./db_functions.js')
+const addEmailSlotToDB = db_functions.addEmailSlotToDB
+const removeBookedSlotFromDB = db_functions.removeBookedSlotFromDB
+const removeEmailSlotFromDB = db_functions.removeEmailSlotFromDB
+const addSignUpToDB = db_functions.addSignUpToDB
+const addGraveyardToDB = db_functions.addGraveyardToDB
+const deleteGraveyardFromDB = db_functions.deleteGraveyardFromDB
+const updateRowInDB = db_functions.updateRowInDB,
+const addBookedSlotToDB = db_functions.addBookedSlotToDB
+const restoreAll = db_functions.restoreAll
 
 var app = express();
 var port = process.env.PORT || 5000;
@@ -27,37 +31,41 @@ app.use(cors())
 this.email_pass = {
   'dummy@gmail.com': 'caaf2a6ffcd9fff8f6b32c9471279569'
 }
-this.active_tokens = []
-this.token_email = {}
-this.data = [
+this.graveyard_data = [
   {name: 'Government graveyard',
     pinCode: 400102, occupied: 10, vacancies: 20,
     address: 'Bandivali, Mumbai rural, Maharastra, India',
     updatedBy: 'dummy@gmail.com'
   },
-  {name: 'Hospital cemetery',
+  {name: 'Hospital graveyard',
     pinCode: 421100, occupied: 12, vacancies: 30,
     address: 'Ambivali, Mumbai rural, Maharastra, India',
     updatedBy: 'dummy@gmail.com'
   },
-  {name: 'Municipal Corporation graveyard',
+  {name: 'Municipal Corporation Cemetery',
     pinCode: 400053, occupied: 30, vacancies: 5,
     address: 'Andheri, Mumbai rural, Maharastra, India',
     updatedBy: 'dummy@gmail.com'
   },
-  {name: 'NGO cemetery',
+  {name: 'NGO graveyard',
     pinCode: 683541, occupied: 10, vacancies: 20,
     address: 'Irapuram, Trivendrum rural, Kerala, India',
     updatedBy: 'dummy@gmail.com'
   },
   {name: 'Church Cemetery',
     pinCode: 400042, occupied: 12, vacancies: 22,
-    address: '4WMQ+W24, Damle Colony, Kanjurmarg East, Mumbai, Maharashtra',
+    address: '4WMQ+W24, Damle Colony, Kanjurmarg East, Mumbai, Maharashtra, India',
     updatedBy: 'dummy@gmail.com'
   }
 ]
 this.booked_slots = {}
 this.email_slots = {}  // slots booked by email
+
+// tables which are not in DB
+this.token_email = {}
+this.active_tokens = []
+
+restoreAll()
 
 const getPrimaryKey = (name, pinCode) => {
   return name + pinCode
@@ -75,10 +83,17 @@ const isTokenValid = (access_token, res) => {
     res.status(200).send({ error: 'No valid token found. Please login again.' })
 }
 
+
+// ____________________________________________________________________________
+
 app.get('/', (req, res) => {
   res.status(200).send(
-    'welcome. there is nothing here. visit /login /signup /updateData /getData'
+    'Welcome. There is nothing here. This is the backend. Please use the frontend.'
   )
+})
+
+app.get('/getData', (req, res) => {
+  res.status(200).send(this.graveyard_data)
 })
 
 app.get('/isTokenValid', (req, res) => {
@@ -111,6 +126,8 @@ app.get('/signup', (req, res) => {
   }
   else  {
     this.email_pass[email] = password  // store password
+    // insert into DB
+    addSignUpToDB(email, password, res)
     res.status(200).send({ status: "Signup successful. You can login now." })
   }
 })
@@ -121,47 +138,64 @@ app.get('/updateData', (req, res) => {
   var occupied = req.query['occupied']
   var vacancies = req.query['vacancies']
   var address = req.query['address']
+  var mapLink = req.query['mapLink']
   var access_token = req.query['access_token']
   if (!access_token || !(this.active_tokens.includes(access_token))) {
     // console.log(access_token, 'not in', this.active_tokens)
     res.status(200).send({ error: 'No valid token found. Please login again.' })
-  } else if (name && pinCode) {
-    if (pinCode.length != 6)
-      res.status(200).send({ error: 'Invalid pin code' })
-    else  {
-      var isUpdated = false
-      for (var row of this.data)  // if cemetery is already existing, update data
-        // var row = this.data[index]
-        if (row.name == name && row.pinCode == pinCode) {
-          if (occupied == 0 && vacancies == 0) {
-            this.data.splice(
-              // index,
-              this.data.findIndex(  // remove row
-                a => (a.name == row.name && a.pinCode == row.pinCode)) 
-            , 1)
-          }
-          else {
-            row.occupied = occupied
-            row.vacancies = vacancies
-            isUpdated = true
-          }
-          break
-        }
-      // if no existing data is not updated, add new row
-      if (!isUpdated && name && pinCode && address)
-          this.data.push({  // push new object to data
-            name: name, pinCode: pinCode, occupied: occupied,
-            vacancies: vacancies, address: address
-          })
-      res.status(200).send({ status: 'Data added successfully' })
+  }
+
+  var email = this.token_email[access_token]
+  if (!email)
+    res.status(200).send({ error: 'No valid token found. Please login again.' })
+
+  if (!name || !pinCode)
+    res.status(200).send({ error: 'Name and Pin Code are required' })
+  if (pinCode.length != 6)
+    res.status(200).send({ error: 'Invalid pin code' })
+
+  // find index for which name and pincode match
+  var foundIndex = -1
+  var index = 0
+  for (index in this.graveyard_data) {
+    var row = this.graveyard_data[index]
+    if (row.name == name && row.pinCode == pinCode) {
+      foundIndex = index
+      break
     }
   }
-  else
-    res.status(200).send({ error: "Enter all the values" })
-})
-
-app.get('/getData', (req, res) => {
-  res.status(200).send(this.data)
+  if (foundIndex == -1) {  // if not found, add new data
+    // if any data is empty
+    if (!occupied || !vacancies || !address)
+      return res.status(200).send({ error: 'All fields are required' })
+    this.graveyard_data.push({
+      name: name, pinCode: pinCode, occupied: occupied,
+      vacancies: vacancies, address: address, mapLink: mapLink,
+      updatedBy: email
+    })
+    // add row to DB
+    addGraveyardToDB(name, pinCode, occupied, vacancies, address, mapLink, email, res)
+    res.status(200).send({ status: 'New graveyard is added successfully' })
+  }
+  if (occupied == '0' && vacancies == '0') {
+    this.graveyard_data.splice(index, 1)  // delete row
+    // delete row from DB
+    deleteGraveyardFromDB(name, pinCode, res)
+    return res.status(200).send({ status: 'Graveyard is deleted successfully' })
+  }
+  
+  if (occupied == 0 || occupied)
+    this.graveyard_data[foundIndex].occupied = parseInt(occupied)
+  if (vacancies == 0 || vacancies)
+    this.graveyard_data[foundIndex].vacancies = parseInt(vacancies)
+  if (address)
+    this.graveyard_data[foundIndex].address = address
+  if (mapLink)
+    this.graveyard_data[foundIndex].mapLink = mapLink
+  this.graveyard_data[foundIndex].updatedBy = email
+  // update row in DB
+  updateRowInDB(name, pinCode, occupied, vacancies, address, mapLink, email, res)
+  res.status(200).send({ status: 'Graveyard is updated successfully' })
 })
 
 app.get('/bookSlot', (req, res) => {
@@ -178,12 +212,12 @@ app.get('/bookSlot', (req, res) => {
       res.status(200).send({ error: 'Invalid pin code length' })
     else  {
       var updateIndex = null
-      for (var index in this.data) { // if cemetery is already existing, update data
-        var row = this.data[index]
+      for (var index in this.graveyard_data) { // if graveyard is already existing, update data
+        var row = this.graveyard_data[index]
         if (row.name == name && row.pinCode == pinCode) {
           if (row.vacancies == 0) {
             res.status(200).send({ 
-              error: "There are no vacancies. Kindly book slots in some other cemetery"
+              error: "There are no vacancies. Kindly book slots in some other graveyard"
             })
           }
           updateIndex = index
@@ -213,6 +247,8 @@ app.get('/bookSlot', (req, res) => {
       this.booked_slots[primaryKey].push({
         personName: personName, email: email
       })
+      // add booked_slots to DB
+      addBookedSlotToDB(primaryKey, personName, email, res)
       // get timestamp
       var timestamp = new Date().toString()
       // add data to this.email_slots
@@ -222,10 +258,16 @@ app.get('/bookSlot', (req, res) => {
         personName: personName,
         timestamp: timestamp
       })
+      // add email slot in DB
+      addEmailSlotToDB(email, name, pinCode, personName, timestamp, res)
       // console.log(this.booked_slots)
       // console.log(this.email_slots)
-      this.data[updateIndex].vacancies -= 1
-      this.data[updateIndex].occupied += 1
+      this.graveyard_data[updateIndex].vacancies -= 1
+      this.graveyard_data[updateIndex].occupied += 1
+      // update row in DB
+      var row = this.graveyard_data[updateIndex]
+      updateRowInDB(name, pinCode, row.occupied, row.vacancies, row.address, row.mapLink, row.updatedBy, res)
+
       res.status(200).send({ status: 'Slot booked successfully' })
     }
   }
@@ -261,13 +303,13 @@ app.get('/cancelSlot', (req, res) => {
   var email = this.token_email[access_token]
   if (!email)
     res.status(200).send({ error: 'No valid token found. Please login again.' })
-  var bookedSlots = this.email_slots[email]
-  if (!bookedSlots)
+  var emailSlots = this.email_slots[email]
+  if (!emailSlots)
     res.status(200).send({ error: 'No slots booked' })
 
   var foundIndex = null
-  for (var index in bookedSlots) {
-    var slot = bookedSlots[index]
+  for (var index in emailSlots) {
+    var slot = emailSlots[index]
     if (slot.personName == personName) {
       foundIndex = index
       break
@@ -275,7 +317,7 @@ app.get('/cancelSlot', (req, res) => {
   }
   if (!foundIndex)
     res.status(200).send({ error: 'No slot found for the given person' })
-  var slot = bookedSlots[foundIndex]
+  var slot = emailSlots[foundIndex]
   var name = slot.name  // graveyard name
   var pinCode = slot.pinCode
   var primaryKey = getPrimaryKey(name, pinCode)
@@ -284,12 +326,16 @@ app.get('/cancelSlot', (req, res) => {
       a => (a.personName == personName && a.email == email)
     ), 1
   )
+  // remove booked slot from DB
+  removeBookedSlotFromDB(primaryKey, personName, email, res)
   this.email_slots[email].splice(foundIndex, 1)
-  bookedSlots.splice(index, 1)
+  emailSlots.splice(index, 1)
+  // remove email slot from DB
+  removeEmailSlotFromDB(email, name, pinCode, personName, res)
   // update vacancies and occupied
   var updateIndex = null
-  for (var index in this.data) {
-    var row = this.data[index]
+  for (var index in this.graveyard_data) {
+    var row = this.graveyard_data[index]
     if (row.name == name && row.pinCode == pinCode) {
       updateIndex = index
       break
@@ -297,8 +343,10 @@ app.get('/cancelSlot', (req, res) => {
   }
   if (!updateIndex)
     res.status(200).send({ error: 'Cemetery not found' })
-  this.data[updateIndex].vacancies += 1
-  this.data[updateIndex].occupied -= 1
+  this.graveyard_data[updateIndex].vacancies += 1
+  this.graveyard_data[updateIndex].occupied -= 1
+  var row = this.graveyard_data[index]
+  updateRowInDB(name, pinCode, row.occupied, row.vacancies, row.address, row.updatedBy, res)
 
   res.status(200).send({ status: 'Slot cancelled successfully' })
 })
