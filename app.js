@@ -15,8 +15,13 @@ const addSignUpToDB = db_functions.addSignUpToDB
 const addGraveyardToDB = db_functions.addGraveyardToDB
 const deleteGraveyardFromDB = db_functions.deleteGraveyardFromDB
 const updateRowInDB = db_functions.updateRowInDB,
-const addBookedSlotToDB = db_functions.addBookedSlotToDB
+addBookedSlotToDB = db_functions.addBookedSlotToDB
 const restoreAll = db_functions.restoreAll
+
+this.email_pass = db_functions.email_pass
+this.graveyard_data = db_functions.graveyard_data
+this.email_slots = db_functions.email_slots
+this.booked_slots = db_functions.booked_slots
 
 var app = express();
 var port = process.env.PORT || 5000;
@@ -26,40 +31,6 @@ app.use(express.urlencoded({ extended: false }))
 app.use(express.json());  // Parse application/json
 // app.use(cors({origin: 'http://localhost:3000'}))
 app.use(cors())
-
-
-this.email_pass = {
-  'dummy@gmail.com': 'caaf2a6ffcd9fff8f6b32c9471279569'
-}
-this.graveyard_data = [
-  {name: 'Government graveyard',
-    pinCode: 400102, occupied: 10, vacancies: 20,
-    address: 'Bandivali, Mumbai rural, Maharastra, India',
-    updatedBy: 'dummy@gmail.com'
-  },
-  {name: 'Hospital graveyard',
-    pinCode: 421100, occupied: 12, vacancies: 30,
-    address: 'Ambivali, Mumbai rural, Maharastra, India',
-    updatedBy: 'dummy@gmail.com'
-  },
-  {name: 'Municipal Corporation Cemetery',
-    pinCode: 400053, occupied: 30, vacancies: 5,
-    address: 'Andheri, Mumbai rural, Maharastra, India',
-    updatedBy: 'dummy@gmail.com'
-  },
-  {name: 'NGO graveyard',
-    pinCode: 683541, occupied: 10, vacancies: 20,
-    address: 'Irapuram, Trivendrum rural, Kerala, India',
-    updatedBy: 'dummy@gmail.com'
-  },
-  {name: 'Church Cemetery',
-    pinCode: 400042, occupied: 12, vacancies: 22,
-    address: '4WMQ+W24, Damle Colony, Kanjurmarg East, Mumbai, Maharashtra, India',
-    updatedBy: 'dummy@gmail.com'
-  }
-]
-this.booked_slots = {}
-this.email_slots = {}  // slots booked by email
 
 // tables which are not in DB
 this.token_email = {}
@@ -113,6 +84,11 @@ app.get('/login', (req, res) => {
     res.status(200).send({ access_token: access_token, status: 'Login successful' })
   }
   else  {
+    console.log('Login failed')
+    console.log(email)
+    console.log(password)
+    console.log(this.email_pass[email])
+    console.log(this.email_pass)
     res.status(200).send({ error: 'Email or password incorrect'})
   }
 })
@@ -331,7 +307,7 @@ app.get('/cancelSlot', (req, res) => {
   this.email_slots[email].splice(foundIndex, 1)
   emailSlots.splice(index, 1)
   // remove email slot from DB
-  removeEmailSlotFromDB(email, name, pinCode, personName, res)
+  removeEmailSlotFromDB(email, personName, res)
   // update vacancies and occupied
   var updateIndex = null
   for (var index in this.graveyard_data) {

@@ -1,6 +1,37 @@
 
 const MongoClient = require('mongodb').MongoClient
 
+var graveyard_data = [
+  {name: 'Government graveyard',
+    pinCode: 400102, occupied: 10, vacancies: 20,
+    address: 'Bandivali, Mumbai rural, Maharastra, India',
+    updatedBy: 'dummy@gmail.com'
+  },
+  {name: 'Hospital graveyard',
+    pinCode: 421100, occupied: 12, vacancies: 30,
+    address: 'Ambivali, Mumbai rural, Maharastra, India',
+    updatedBy: 'dummy@gmail.com'
+  },
+  {name: 'Municipal Corporation Cemetery',
+    pinCode: 400053, occupied: 30, vacancies: 5,
+    address: 'Andheri, Mumbai rural, Maharastra, India',
+    updatedBy: 'dummy@gmail.com'
+  },
+  {name: 'NGO graveyard',
+    pinCode: 683541, occupied: 10, vacancies: 20,
+    address: 'Irapuram, Trivendrum rural, Kerala, India',
+    updatedBy: 'dummy@gmail.com'
+  },
+  {name: 'Church Cemetery',
+    pinCode: 400042, occupied: 12, vacancies: 22,
+    address: '4WMQ+W24, Damle Colony, Kanjurmarg East, Mumbai, Maharashtra, India',
+    updatedBy: 'dummy@gmail.com'
+  }
+]
+let email_pass = {}
+let booked_slots = {}
+let email_slots = {}  // slots booked by email
+
 var user = 'user1'
 var pass = 'pass1234'
 var uri = 'mongodb+srv://' + user + ':' + pass
@@ -8,8 +39,8 @@ var uri = 'mongodb+srv://' + user + ':' + pass
     + '?retryWrites=true&w=majority';
 
 // restore email_pass from DB
-const restoreEmailPass = (res) => {
-    this.email_pass = []
+const restoreEmailPass = () => {
+    console.log('restoring email_pass')
 	MongoClient.connect(uri, function(err, client) {
 		if (err) {
 			console.log('Error occurred while connecting to MongoDB Atlas...\n', err);
@@ -20,25 +51,20 @@ const restoreEmailPass = (res) => {
 			if (err) {
 				console.log(err);
 			} else if (result.length) {
-				console.log('Found:', result);
-				for (var i = 0; i < result.length; i++) {
-					this.email_pass[result[i].email] = result[i].password
-				}
-				res.status(200).send({
-					status: 'Email-pass restored'
-				})
+                for (var row of result)
+                    email_pass[row.email] = row.password
+                console.log(email_pass)
 			} else {
-				console.log('No document(s) found with defined "find" criteria!');
+				console.log('restoreEmailPass: No document(s) found with defined "find" criteria!');
 			}
-			// Close connection
 			client.close();
 		});
 	});
 }
 
 // restore graveyard_data from DB
-const restoreGraveyardData = (res) => {
-    this.graveyard_data = []
+const restoreGraveyardData = () => {
+    console.log('restoring graveyard_data')
 	MongoClient.connect(uri, function(err, client) {
 		if (err) {
 			console.log('Error occurred while connecting to MongoDB Atlas...', err);
@@ -50,12 +76,11 @@ const restoreGraveyardData = (res) => {
 				console.log(err);
 			} else if (result.length) {
 				console.log('Found:', result);
-				this.graveyard_data = result
+				graveyard_data = result
 				console.log('graveyard_data restored')
 			} else {
-				console.log('No document(s) found with defined "find" criteria!');
+				console.log('restoreGraveyardData: No document(s) found with defined "find" criteria!');
 			}
-			// Close connection
 			client.close();
 		});
 	});
@@ -64,9 +89,7 @@ const restoreGraveyardData = (res) => {
 const addEmailSlotToDB = (email, name, pinCode, personName, timestamp, res) => {
 	MongoClient.connect(uri, function(err, client) {
 		if (err)
-			res.status(200).send({
-				error: 'Error connecting to DB'
-			});
+			res.status(200).send({ error: 'Error connecting to DB' });
 		var db = client.db('myFirstDatabase');
 		var collection = db.collection('email_slots');
 		collection.insertOne({
@@ -77,9 +100,7 @@ const addEmailSlotToDB = (email, name, pinCode, personName, timestamp, res) => {
 			timestamp: timestamp
 		}, function(err, result) {
 			if (err)
-				res.status(200).send({
-					error: 'Error inserting into DB'
-				});
+				res.status(200).send({ error: 'Error inserting into DB' });
 			console.log("row inserted");
 			client.close();
 		});
@@ -87,7 +108,8 @@ const addEmailSlotToDB = (email, name, pinCode, personName, timestamp, res) => {
 }
 
 const restoreEmailSlots = () => {
-	this.email_slots = []
+    console.log('restoring email_slots')
+    email_slots = {}  // TODO: change method to clear values
 	MongoClient.connect(uri, function(err, client) {
 		if (err)
 			console.log('Error connecting to DB')
@@ -98,9 +120,9 @@ const restoreEmailSlots = () => {
 				console.log('Error getting data from DB')
 			for (var row of result) {
 				var email = row.email
-				if (!this.email_slots[email])
-					this.email_slots[email] = []
-				this.email_slots[email].push({
+				if (!email_slots[email])
+					email_slots[email] = []
+				email_slots[email].push({
 					name: row.name,
 					pinCode: row.pinCode,
 					personName: row.personName,
@@ -135,22 +157,15 @@ const removeBookedSlotFromDB = (primaryKey, personName, email, res) => {
 	});
 }
 
-const removeEmailSlotFromDB = (email, name, pinCode, personName, timestamp, res) => {
+const removeEmailSlotFromDB = (email, personName, res) => {
 	MongoClient.connect(uri, function(err, client) {
 		if (err)
-			res.status(200).send({
-				error: 'Error connecting to DB'
-			});
+			res.status(200).send({ error: 'Error connecting to DB' });
 		var db = client.db('myFirstDatabase');
 		var collection = db.collection('email_slots');
-		collection.deleteOne({
-			email: email,
-			personName: personName
-		}, function(err, result) {
+		collection.deleteOne({ email: email, personName: personName }, function(err, result) {
 			if (err)
-				res.status(200).send({
-					error: 'Error inserting into DB'
-				});
+				res.status(200).send({ error: 'Error inserting into DB' });
 			console.log("row inserted");
 			client.close();
 		});
@@ -165,10 +180,7 @@ const addSignUpToDB = (email, password, res) => {
 			});
 		var db = client.db('myFirstDatabase');
 		var collection = db.collection('email_pass');
-		collection.insertOne({
-			email: email,
-			password: password
-		}, function(err, result) {
+		collection.insertOne({ email: email, password: password }, function(err, result) {
 			if (err)
 				res.status(200).send({
 					error: 'Error inserting into DB'
@@ -220,12 +232,11 @@ const deleteGraveyardFromDB = (name, pinCode, res) => {
 	});
 }
 
-// get row from this.graveyard_data
+// get row from graveyard_data
 const getRowFromGraveyardData = (name, pinCode) => {
-	for (var row of this.graveyard_data) {
+	for (var row of graveyard_data)
 		if (row.name == name && row.pinCode == pinCode)
 			return row
-	}
 	return null
 }
 
@@ -246,9 +257,7 @@ const updateRowInDB = (name, pinCode, occupied, vacancies, address, updatedBy, r
 const addBookedSlotToDB = (primaryKey, personName, email, res) => {
 	MongoClient.connect(uri, function(err, client) {
 		if (err)
-			res.status(200).send({
-				error: 'Error connecting to DB'
-			});
+			res.status(200).send({ error: 'Error connecting to DB' });
 		var db = client.db('myFirstDatabase');
 		var collection = db.collection('booked_slots');
 		collection.insertOne({
@@ -257,9 +266,7 @@ const addBookedSlotToDB = (primaryKey, personName, email, res) => {
 			email: email
 		}, function(err, result) {
 			if (err)
-				res.status(200).send({
-					error: 'Error inserting into DB'
-				});
+				res.status(200).send({ error: 'Error inserting into DB' });
 			console.log("row inserted");
 			client.close();
 		});
@@ -267,7 +274,8 @@ const addBookedSlotToDB = (primaryKey, personName, email, res) => {
 }
 
 const restoreBookedSlots = () => {
-	this.booked_slots = []
+    console.log("restoring booked slots");
+	booked_slots = []  // TODO: change method to clear values
 	MongoClient.connect(uri, function(err, client) {
 		if (err)
 			console.log('Error connecting to DB')
@@ -280,9 +288,9 @@ const restoreBookedSlots = () => {
 				var primaryKey = row.primaryKey
 				var personName = row.personName
 				var email = row.email
-				if (!this.booked_slots[primaryKey])
-					this.booked_slots[primaryKey] = []
-				this.booked_slots[primaryKey].push({
+				if (!booked_slots[primaryKey])
+					booked_slots[primaryKey] = []
+				booked_slots[primaryKey].push({
 					personName: personName,
 					email: email
 				})
@@ -301,6 +309,11 @@ const restoreAll = () => {
 
 // export all the functions
 module.exports = {
+    email_pass: email_pass,
+    graveyard_data: graveyard_data,
+    email_slots: email_slots,
+    booked_slots: booked_slots,
+
     addEmailSlotToDB: addEmailSlotToDB,
     removeBookedSlotFromDB: removeBookedSlotFromDB,
     removeEmailSlotFromDB: removeEmailSlotFromDB,
@@ -316,3 +329,13 @@ module.exports = {
     restoreEmailSlots: restoreEmailSlots,
     restoreAll: restoreAll
 }
+
+/*
+https://cloud.mongodb.com/v2/6129c2d2b742310d77d14f18#clusters/connect?clusterId=Cluster0
+
+Cmd to connect mongo
+mongosh "mongodb+srv://cluster0.nk3zq.mongodb.net/myFirstDatabase" \
+  --username user1 -p pass1234
+
+db.test_apples.find().forEach(printjson)
+*/
