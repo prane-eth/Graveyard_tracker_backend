@@ -17,6 +17,7 @@ const deleteGraveyardFromDB = db_functions.deleteGraveyardFromDB
 const updateRowInDB = db_functions.updateRowInDB,
 addBookedSlotToDB = db_functions.addBookedSlotToDB
 const updateVacanciesInDB = db_functions.updateVacanciesInDB
+const changePasswordInDB = db_functions.changePasswordInDB
 // const restoreAll = db_functions.restoreAll
 
 this.email_pass = db_functions.email_pass
@@ -95,6 +96,10 @@ app.get('/login', (req, res) => {
   var email = req.query['email']
   var password = req.query['password']
   password = hash(password)
+  // check if email contains . and @
+  if (!(email.includes('.') && email.includes('@'))) {
+    return res.status(200).send({ error: 'Invalid email.' })
+  }
   if (this.email_pass[email] == password) {
     var timestamp = new Date().toString()
     var access_token = hash(email + timestamp)
@@ -116,6 +121,10 @@ app.get('/signup', (req, res) => {
   var email = req.query['email']
   var password = req.query['password']
   password = hash(password)
+  // check if email contains . and @
+  if (!(email.includes('.') && email.includes('@'))) {
+    return res.status(200).send({ error: 'Invalid email.' })
+  }
   if (this.email_pass[email]) {
     return res.status(200).send({ error: "Email already registered" })
   }
@@ -124,6 +133,19 @@ app.get('/signup', (req, res) => {
     addSignUpToDB(email, password, res)
     return res.status(200).send({ status: "Signup successful. You can login now." })
   }
+})
+
+app.get('/changePassword', (req, res) => {
+  var access_token = req.query['access_token']
+  var newPassword = req.query['newPassword']
+  var isResponded = invalidTokenRedirect(access_token, res)
+  if (isResponded)
+    return
+  var email = this.token_email[access_token]
+  newPassword = hash(newPassword)
+  this.email_pass[email] = newPassword
+  changePasswordInDB(email, newPassword, res)
+  return res.status(200).send({ status: 'Password changed successfully' })
 })
 
 app.get('/updateData', (req, res) => {

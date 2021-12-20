@@ -66,6 +66,28 @@ const restoreEmailPass = () => {
 	this.email_pass = email_pass
 }
 
+const changePasswordInDB = (email, password, res) => {
+	// console.log('changing password in DB')
+	MongoClient.connect(uri, function(err, client) {
+		if (err) {
+			console.log('Error occurred while connecting to MongoDB Atlas...\n', err);
+			return
+		}
+		// console.log('changePasswordInDB: Connected...');
+		const collection = client.db("myFirstDatabase").collection("email_pass");
+		collection.updateOne({email: email}, {$set: {password: password}}, function(err, result) {
+			if (err) {
+				console.log(err);
+				return
+			} else {
+				console.log('changePasswordInDB: Password changed successfully!');
+				// res.send('Password changed successfully!')
+			}
+			client.close();
+		});
+	});
+}
+
 // restore graveyard_data from DB
 const restoreGraveyardData = () => {
     // console.log('restoring graveyard_data')
@@ -375,7 +397,8 @@ module.exports = {
     getRowFromGraveyardData: getRowFromGraveyardData,
     updateRowInDB: updateRowInDB, 
     addBookedSlotToDB: addBookedSlotToDB,
-	updateVacanciesInDB: updateVacanciesInDB
+	updateVacanciesInDB: updateVacanciesInDB,
+	changePasswordInDB: changePasswordInDB,
 }
 
 /*
