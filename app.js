@@ -16,7 +16,8 @@ const addGraveyardToDB = db_functions.addGraveyardToDB
 const deleteGraveyardFromDB = db_functions.deleteGraveyardFromDB
 const updateRowInDB = db_functions.updateRowInDB,
 addBookedSlotToDB = db_functions.addBookedSlotToDB
-const restoreAll = db_functions.restoreAll
+const updateVacanciesInDB = db_functions.updateVacanciesInDB
+// const restoreAll = db_functions.restoreAll
 
 this.email_pass = db_functions.email_pass
 this.graveyard_data = db_functions.graveyard_data
@@ -36,22 +37,26 @@ app.use(cors())
 this.token_email = {}
 this.active_tokens = []
 
-restoreAll()
+this.admin_emails = ['dummy@gmail.com']
+
+// restoreAll()
 
 const getPrimaryKey = (name, pinCode) => {
   return name + pinCode
 }
 
-const isTokenValid = (access_token, res) => {
+const invalidTokenRedirect = (access_token, res) => {
   if (!access_token || !(this.active_tokens.includes(access_token))) {
-    res.status(200).send({ error: 'No valid token found. Please login again.' })
-    return
+    return res.status(200).send({ error: 'No valid token found. Please login again.' })
   }
   var email = this.token_email[access_token]
-  if (email)
-    res.status(200).send({ status: 'Token is valid' })
-  else
+  if (email){
+    return false
+  }
+  else {
     res.status(200).send({ error: 'No valid token found. Please login again.' })
+    return true
+  }
 }
 
 
@@ -69,7 +74,21 @@ app.get('/getData', (req, res) => {
 
 app.get('/isTokenValid', (req, res) => {
   var access_token = req.query['access_token']
-  isTokenValid(access_token, res)
+  var isResponded = invalidTokenRedirect(access_token, res)
+  if (!isResponded)
+    res.status(200).send({ status: true })
+})
+
+app.get('/isAdmin', (req, res) => {
+  var access_token = req.query['access_token']
+  var isResponded = invalidTokenRedirect(access_token, res)
+  if (isResponded)
+    return
+  var email = this.token_email[access_token]
+  if (this.admin_emails.includes(email))
+    return res.status(200).send({ status: true })
+  else
+    return res.status(200).send({ status: false })
 })
 
 app.get('/login', (req, res) => {
@@ -81,7 +100,7 @@ app.get('/login', (req, res) => {
     var access_token = hash(email + timestamp)
     this.active_tokens.push(access_token)
     this.token_email[access_token] = email
-    res.status(200).send({ access_token: access_token, status: 'Login successful' })
+    return res.status(200).send({ access_token: access_token, status: 'Login successful' })
   }
   else  {
     console.log('Login failed')
@@ -89,7 +108,7 @@ app.get('/login', (req, res) => {
     console.log(password)
     console.log(this.email_pass[email])
     console.log(this.email_pass)
-    res.status(200).send({ error: 'Email or password incorrect'})
+    return res.status(200).send({ error: 'Email or password incorrect'})
   }
 })
 
@@ -98,13 +117,12 @@ app.get('/signup', (req, res) => {
   var password = req.query['password']
   password = hash(password)
   if (this.email_pass[email]) {
-    res.status(200).send({ error: "Email already registered" })
+    return res.status(200).send({ error: "Email already registered" })
   }
   else  {
     this.email_pass[email] = password  // store password
-    // insert into DB
     addSignUpToDB(email, password, res)
-    res.status(200).send({ status: "Signup successful. You can login now." })
+    return res.status(200).send({ status: "Signup successful. You can login now." })
   }
 })
 
@@ -116,19 +134,20 @@ app.get('/updateData', (req, res) => {
   var address = req.query['address']
   var mapLink = req.query['mapLink']
   var access_token = req.query['access_token']
-  if (!access_token || !(this.active_tokens.includes(access_token))) {
-    // console.log(access_token, 'not in', this.active_tokens)
-    res.status(200).send({ error: 'No valid token found. Please login again.' })
-  }
+  invalidTokenRedirect(access_token, res)
 
   var email = this.token_email[access_token]
   if (!email)
-    res.status(200).send({ error: 'No valid token found. Please login again.' })
+    return res.status(200).send({ error: 'No valid token found. Please login again.' })
+
+  // check whether email is admin
+  if (!this.admin_emails.includes(email))
+    return res.status(200).send({ error: 'You are not authorized to update data.' })
 
   if (!name || !pinCode)
-    res.status(200).send({ error: 'Name and Pin Code are required' })
+    return res.status(200).send({ error: 'Name and Pin Code are required' })
   if (pinCode.length != 6)
-    res.status(200).send({ error: 'Invalid pin code' })
+    return res.status(200).send({ error: 'Invalid pin code' })
 
   // find index for which name and pincode match
   var foundIndex = -1
@@ -149,13 +168,11 @@ app.get('/updateData', (req, res) => {
       vacancies: vacancies, address: address, mapLink: mapLink,
       updatedBy: email
     })
-    // add row to DB
     addGraveyardToDB(name, pinCode, occupied, vacancies, address, mapLink, email, res)
-    res.status(200).send({ status: 'New graveyard is added successfully' })
+    return res.status(200).send({ status: 'New graveyard is added successfully' })
   }
   if (occupied == '0' && vacancies == '0') {
     this.graveyard_data.splice(index, 1)  // delete row
-    // delete row from DB
     deleteGraveyardFromDB(name, pinCode, res)
     return res.status(200).send({ status: 'Graveyard is deleted successfully' })
   }
@@ -169,9 +186,8 @@ app.get('/updateData', (req, res) => {
   if (mapLink)
     this.graveyard_data[foundIndex].mapLink = mapLink
   this.graveyard_data[foundIndex].updatedBy = email
-  // update row in DB
   updateRowInDB(name, pinCode, occupied, vacancies, address, mapLink, email, res)
-  res.status(200).send({ status: 'Graveyard is updated successfully' })
+  return res.status(200).send({ status: 'Graveyard is updated successfully' })
 })
 
 app.get('/bookSlot', (req, res) => {
@@ -181,18 +197,18 @@ app.get('/bookSlot', (req, res) => {
   var access_token = req.query['access_token']
   if (!access_token || !(this.active_tokens.includes(access_token))) {
     // console.log(access_token, 'not in', this.active_tokens)
-    res.status(200).send({ error: 'No valid token. Please login again.' })
+    return res.status(200).send({ error: 'No valid token. Please login again.' })
   }
   if (name && pinCode) {
     if (pinCode.length != 6)
-      res.status(200).send({ error: 'Invalid pin code length' })
+      return res.status(200).send({ error: 'Invalid pin code length' })
     else  {
       var updateIndex = null
       for (var index in this.graveyard_data) { // if graveyard is already existing, update data
         var row = this.graveyard_data[index]
         if (row.name == name && row.pinCode == pinCode) {
           if (row.vacancies == 0) {
-            res.status(200).send({ 
+            return res.status(200).send({ 
               error: "There are no vacancies. Kindly book slots in some other graveyard"
             })
           }
@@ -201,7 +217,7 @@ app.get('/bookSlot', (req, res) => {
         }
       }
       if (!updateIndex)
-        res.status(200).send({ error: 'Cemetery not found' })
+        return res.status(200).send({ error: 'Cemetery not found' })
       
       var email = this.token_email[access_token]
       if (!this.email_slots[email])
@@ -211,9 +227,7 @@ app.get('/bookSlot', (req, res) => {
       if (this.email_slots[email])
         for (var slot of this.email_slots[email])
           if (slot.personName == personName) {
-            res.status(200).send({
-              error: 'You have already booked a slot for the same person'
-            })
+            return res.status(200).send({ error: 'You have already booked a slot for the same person' })
           }
       var primaryKey = getPrimaryKey(name, pinCode)
       // if primaryKey is not in this.booked_slots
@@ -239,49 +253,48 @@ app.get('/bookSlot', (req, res) => {
       // console.log(this.booked_slots)
       // console.log(this.email_slots)
       this.graveyard_data[updateIndex].vacancies -= 1
-      this.graveyard_data[updateIndex].occupied += 1
+      this.graveyard_data[updateIndex].occupied = parseInt(this.graveyard_data[updateIndex].occupied) + 1
       // update row in DB
       var row = this.graveyard_data[updateIndex]
-      updateRowInDB(name, pinCode, row.occupied, row.vacancies, row.address, row.mapLink, row.updatedBy, res)
+      updateVacanciesInDB(name, pinCode, row.occupied, row.vacancies, res)
 
-      res.status(200).send({ status: 'Slot booked successfully' })
+      return res.status(200).send({ status: 'Slot booked successfully' })
     }
   }
   else
-    res.status(200).send({ error: "Enter all the values" })
+    return res.status(200).send({ error: "Enter all the values" })
 })
 
 app.get('/getBookedSlots', (req, res) => {
   var access_token = req.query['access_token']
   if (!access_token || !(this.active_tokens.includes(access_token))) {
-    res.status(200).send({ error: 'Session expired. Please login again.' })
+    return res.status(200).send({ error: 'Session expired. Please login again.' })
     return
   }
   var email = this.token_email[access_token]
   if (email) {
     var slots = this.email_slots[email]
     if (slots)
-      res.status(200).send({ slots: slots })
+      return res.status(200).send({ slots: slots })
     else
-      res.status(200).send({ error: 'No slots booked' })
+      return res.status(200).send({ error: 'No slots booked' })
   }
   else
-    res.status(200).send({ error: 'No valid token found. Please login again.' })
+    return res.status(200).send({ error: 'No valid token found. Please login again.' })
 })
 
 app.get('/cancelSlot', (req, res) => {
   var personName = req.query['personName']
   var access_token = req.query['access_token']
   if (!access_token || !(this.active_tokens.includes(access_token))) {
-    res.status(200).send({ error: 'No valid token. Please login again.' })
-    return
+    return res.status(200).send({ error: 'No valid token. Please login again.' })
   }
   var email = this.token_email[access_token]
   if (!email)
-    res.status(200).send({ error: 'No valid token found. Please login again.' })
+    return res.status(200).send({ error: 'No valid token found. Please login again.' })
   var emailSlots = this.email_slots[email]
   if (!emailSlots)
-    res.status(200).send({ error: 'No slots booked' })
+    return res.status(200).send({ error: 'No slots booked' })
 
   var foundIndex = null
   for (var index in emailSlots) {
@@ -292,7 +305,7 @@ app.get('/cancelSlot', (req, res) => {
     }
   }
   if (!foundIndex)
-    res.status(200).send({ error: 'No slot found for the given person' })
+    return res.status(200).send({ error: 'No slot found for the given person' })
   var slot = emailSlots[foundIndex]
   var name = slot.name  // graveyard name
   var pinCode = slot.pinCode
@@ -302,11 +315,9 @@ app.get('/cancelSlot', (req, res) => {
       a => (a.personName == personName && a.email == email)
     ), 1
   )
-  // remove booked slot from DB
   removeBookedSlotFromDB(primaryKey, personName, email, res)
   this.email_slots[email].splice(foundIndex, 1)
   emailSlots.splice(index, 1)
-  // remove email slot from DB
   removeEmailSlotFromDB(email, personName, res)
   // update vacancies and occupied
   var updateIndex = null
@@ -318,13 +329,13 @@ app.get('/cancelSlot', (req, res) => {
     }
   }
   if (!updateIndex)
-    res.status(200).send({ error: 'Cemetery not found' })
+    return res.status(200).send({ error: 'Cemetery not found' })
   this.graveyard_data[updateIndex].vacancies += 1
   this.graveyard_data[updateIndex].occupied -= 1
   var row = this.graveyard_data[index]
-  updateRowInDB(name, pinCode, row.occupied, row.vacancies, row.address, row.updatedBy, res)
+  updateVacanciesInDB(name, pinCode, row.occupied, row.vacancies, res)
 
-  res.status(200).send({ status: 'Slot cancelled successfully' })
+  return res.status(200).send({ status: 'Slot cancelled successfully' })
 })
 
 app.get('/logout', (req, res) => {
@@ -335,7 +346,7 @@ app.get('/logout', (req, res) => {
     this.active_tokens.splice(index, 1)
   // remove access_token from this.token_email
   delete this.token_email[access_token]
-  res.status(200).send({status: 'Successful'})
+  return res.status(200).send({status: 'Successful'})
 })
 
 httpServer.listen(port);
