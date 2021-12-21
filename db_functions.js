@@ -309,7 +309,7 @@ const getRowFromGraveyardData = (name, pinCode) => {
 	return null
 }
 
-const updateRowInDB = (name, pinCode, occupied, vacancies, address, updatedBy, res) => {
+const updateRowInDB = (name, pinCode, occupied, vacancies, address, mapLink, updatedBy, res) => {
 	var row = getRowFromGraveyardData(name, pinCode)
 	if (!occupied)
 		occupied = row.occupied
@@ -317,10 +317,12 @@ const updateRowInDB = (name, pinCode, occupied, vacancies, address, updatedBy, r
 		vacancies = row.vacancies
 	if (!address)
 		address = row.address
+	if (!mapLink)
+		mapLink = row.mapLink
 	if (!updatedBy)
 		updatedBy = row.updatedBy
 	deleteGraveyardFromDB(name, pinCode, res)
-	addGraveyardToDB(name, pinCode, occupied, vacancies, address, updatedBy, res)
+	addGraveyardToDB(name, pinCode, occupied, vacancies, address, mapLink, updatedBy, res)
 }
 
 const addBookedSlotToDB = (primaryKey, personName, email, res) => {

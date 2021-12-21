@@ -38,9 +38,7 @@ app.use(cors())
 this.token_email = {}
 this.active_tokens = []
 
-this.admin_emails = ['dummy@gmail.com']
-
-// restoreAll()
+this.admin_emails = ['admin1@gmail.com']
 
 const getPrimaryKey = (name, pinCode) => {
   return name + pinCode
@@ -51,7 +49,7 @@ const invalidTokenRedirect = (access_token, res) => {
     return res.status(200).send({ error: 'No valid token found. Please login again.' })
   }
   var email = this.token_email[access_token]
-  if (email){
+  if (email) {
     return false
   }
   else {
@@ -199,9 +197,9 @@ app.get('/updateData', (req, res) => {
     return res.status(200).send({ status: 'Graveyard is deleted successfully' })
   }
   
-  if (occupied == 0 || occupied)
+  if (occupied.length)
     this.graveyard_data[foundIndex].occupied = parseInt(occupied)
-  if (vacancies == 0 || vacancies)
+  if (vacancies.length)
     this.graveyard_data[foundIndex].vacancies = parseInt(vacancies)
   if (address)
     this.graveyard_data[foundIndex].address = address
