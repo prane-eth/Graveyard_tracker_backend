@@ -228,6 +228,7 @@ app.get('/bookSlot', (req, res) => {
               error: "There are no vacancies. Kindly book slots in some other graveyard"
             })
           }
+          name = row.name
           updateIndex = index
           break
         }

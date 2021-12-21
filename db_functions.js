@@ -304,17 +304,19 @@ const deleteGraveyardFromDB = (name, pinCode, res) => {
 // get row from graveyard_data
 const getRowFromGraveyardData = (name, pinCode) => {
 	for (var row of this.graveyard_data)
-		if (row.name == name && row.pinCode == pinCode)
+		if (row.name.toLowerCase() === name.toLowerCase() && row.pinCode == pinCode)
 			return row
 	return null
 }
 
 const updateRowInDB = (name, pinCode, occupied, vacancies, address, mapLink, updatedBy, res) => {
 	var row = getRowFromGraveyardData(name, pinCode)
+	name = row.name
+	pinCode = row.pinCode
 	if (!occupied)
-		occupied = row.occupied
+		occupied = parseInt(row.occupied)
 	if (!vacancies)
-		vacancies = row.vacancies
+		vacancies = parseInt(row.vacancies)
 	if (!address)
 		address = row.address
 	if (!mapLink)
