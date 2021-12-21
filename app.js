@@ -107,10 +107,6 @@ app.get('/login', (req, res) => {
   }
   else  {
     console.log('Login failed')
-    console.log(email)
-    console.log(password)
-    console.log(this.email_pass[email])
-    console.log(this.email_pass)
     return res.status(200).send({ error: 'Email or password incorrect'})
   }
 })
@@ -174,7 +170,7 @@ app.get('/updateData', (req, res) => {
   var index = 0
   for (index in this.graveyard_data) {
     var row = this.graveyard_data[index]
-    if (row.name == name && row.pinCode == pinCode) {
+    if (row.name.toLowerCase() == name.toLowerCase() && row.pinCode == pinCode) {
       foundIndex = index
       break
     }
@@ -226,7 +222,7 @@ app.get('/bookSlot', (req, res) => {
       var updateIndex = null
       for (var index in this.graveyard_data) { // if graveyard is already existing, update data
         var row = this.graveyard_data[index]
-        if (row.name == name && row.pinCode == pinCode) {
+        if (row.name.toLowerCase() == name.toLowerCase() && row.pinCode == pinCode) {
           if (row.vacancies == 0) {
             return res.status(200).send({ 
               error: "There are no vacancies. Kindly book slots in some other graveyard"
@@ -246,7 +242,7 @@ app.get('/bookSlot', (req, res) => {
       // then return that personName is already booked
       if (this.email_slots[email])
         for (var slot of this.email_slots[email])
-          if (slot.personName == personName) {
+          if (slot.name.toLowerCase() == personName.toLowerCase()) {
             return res.status(200).send({ error: 'You have already booked a slot for the same person' })
           }
       var primaryKey = getPrimaryKey(name, pinCode)
@@ -289,7 +285,6 @@ app.get('/getBookedSlots', (req, res) => {
   var access_token = req.query['access_token']
   if (!access_token || !(this.active_tokens.includes(access_token))) {
     return res.status(200).send({ error: 'Session expired. Please login again.' })
-    return
   }
   var email = this.token_email[access_token]
   if (email) {
@@ -319,7 +314,8 @@ app.get('/cancelSlot', (req, res) => {
   var foundIndex = null
   for (var index in emailSlots) {
     var slot = emailSlots[index]
-    if (slot.personName == personName) {
+    // lower case
+    if (slot.personName.toLowerCase() == personName.toLowerCase()) {
       foundIndex = index
       break
     }
@@ -332,7 +328,7 @@ app.get('/cancelSlot', (req, res) => {
   var primaryKey = getPrimaryKey(name, pinCode)
   this.booked_slots[primaryKey].splice(
     this.booked_slots[primaryKey].findIndex(
-      a => (a.personName == personName && a.email == email)
+      a => (a.personName.toLowerCase() == personName.toLowerCase() && a.email == email)
     ), 1
   )
   removeBookedSlotFromDB(primaryKey, personName, email, res)
@@ -343,7 +339,7 @@ app.get('/cancelSlot', (req, res) => {
   var updateIndex = null
   for (var index in this.graveyard_data) {
     var row = this.graveyard_data[index]
-    if (row.name == name && row.pinCode == pinCode) {
+    if (row.name.toLowerCase() == name.toLowerCase() && row.pinCode == pinCode) {
       updateIndex = index
       break
     }
