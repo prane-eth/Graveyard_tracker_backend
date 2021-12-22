@@ -234,17 +234,19 @@ app.get('/bookSlot', (req, res) => {
         }
       }
       if (!updateIndex)
-        return res.status(200).send({ error: 'Cemetery not found' })
+        return res.status(200).send({ error: 'Graveyard not found' })
       
       var email = this.token_email[access_token]
       if (!this.email_slots[email])
         this.email_slots[email] = []
       // if personName and email exists in this.email_slots[email]
       // then return that personName is already booked
-      if (this.email_slots[email])
+      else
         for (var slot of this.email_slots[email])
-          if (slot.name.toLowerCase() == personName.toLowerCase()) {
-            return res.status(200).send({ error: 'You have already booked a slot for the same person' })
+          if (slot.personName.toLowerCase() == personName.toLowerCase()) {
+            return res.status(200).send({
+              error: 'You have already booked a slot for the same person'
+            })
           }
       var primaryKey = getPrimaryKey(name, pinCode)
       // if primaryKey is not in this.booked_slots
