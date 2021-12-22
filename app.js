@@ -233,7 +233,7 @@ app.get('/bookSlot', (req, res) => {
           break
         }
       }
-      if (!updateIndex)
+      if (updateIndex == null)
         return res.status(200).send({ error: 'Graveyard not found' })
       
       var email = this.token_email[access_token]
