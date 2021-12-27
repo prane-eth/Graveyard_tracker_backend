@@ -4,7 +4,7 @@
 const express = require('express');
 // const request = require('request');
 const cors = require('cors');
-const hash = require('md5');  // import md5 as hash
+const hash = require('sha256');
 
 // import functions from db_functions.js
 const db_functions = require('./db_functions.js')
