@@ -36,7 +36,7 @@ var user = 'user1'
 var pass = 'pass1234'
 var dbname = 'myFirstDatabase'
 var uri = 'mongodb+srv://' + user + ':' + pass
-    + '@cluster0.nk3zq.mongodb.net/' + dbname
+    + '@cluster0.nk3zq.mongodb.net./g/' + dbname
     + '?retryWrites=true&w=majority'
 
 // restore email_pass from DB
